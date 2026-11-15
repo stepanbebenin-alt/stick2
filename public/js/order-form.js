@@ -64,6 +64,7 @@ export function initOrderForm({ reducedMotion = false } = {}) {
 
   const sketchModal = document.getElementById('sketchModal');
   const napkinCanvasFull = document.getElementById('napkinCanvasFull');
+  const sketchModalRotateBtn = document.getElementById('sketchModalRotate');
   const sketchModalUndoBtn = document.getElementById('sketchModalUndo');
   const sketchModalClearBtn = document.getElementById('sketchModalClear');
   const sketchModalDoneBtn = document.getElementById('sketchModalDone');
@@ -379,7 +380,10 @@ export function initOrderForm({ reducedMotion = false } = {}) {
   // --- Napkin Sketch Canvas (inline + fullscreen modal) ---
   let inlineDirty = false;
   let modalHasSketch = false;
+  let modalRotatedLandscape = false;
+  let modalDesktopPortrait = false;
   const sketchStage = napkinCanvasFull?.closest('.sketch-modal-stage') || null;
+  const isModalRotated = () => Boolean(sketchModal?.classList.contains('is-rotated'));
 
   function drawContained(ctx, targetW, targetH, sourceCanvas) {
     ctx.fillStyle = '#fffdf5';
@@ -393,7 +397,7 @@ export function initOrderForm({ reducedMotion = false } = {}) {
     ctx.drawImage(sourceCanvas, dx, dy, drawW, drawH);
   }
 
-  function createSketchSurface(canvas, strokeCssWidth, { onStrokeStart, onUndo, onClear } = {}) {
+  function createSketchSurface(canvas, strokeCssWidth, { onStrokeStart, onUndo, onClear, isRotated } = {}) {
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return null;
 
@@ -414,20 +418,24 @@ export function initOrderForm({ reducedMotion = false } = {}) {
       });
     };
 
-    const getScale = () => {
+    const getStrokeScale = () => {
+      if (canvas.clientWidth > 0) return canvas.width / canvas.clientWidth;
       const r = canvas.getBoundingClientRect();
-      return {
-        rect: r,
-        sx: r.width > 0 ? canvas.width / r.width : 1,
-        sy: r.height > 0 ? canvas.height / r.height : 1,
-      };
+      const visualW = isRotated?.() ? r.height : r.width;
+      return visualW > 0 ? canvas.width / visualW : 1;
     };
 
     const getPoint = (e) => {
-      const { rect, sx, sy } = getScale();
+      const r = canvas.getBoundingClientRect();
+      if (isRotated?.()) {
+        return {
+          x: r.height > 0 ? ((e.clientY - r.top) * canvas.width) / r.height : 0,
+          y: r.width > 0 ? ((r.right - e.clientX) * canvas.height) / r.width : 0,
+        };
+      }
       return {
-        x: (e.clientX - rect.left) * sx,
-        y: (e.clientY - rect.top) * sy,
+        x: r.width > 0 ? ((e.clientX - r.left) * canvas.width) / r.width : 0,
+        y: r.height > 0 ? ((e.clientY - r.top) * canvas.height) / r.height : 0,
       };
     };
 
@@ -446,7 +454,7 @@ export function initOrderForm({ reducedMotion = false } = {}) {
       } catch {
         // Ignore if pointer capture is unsupported on synthetic pointer events
       }
-      const lineWidth = strokeCssWidth * getScale().sx;
+      const lineWidth = strokeCssWidth * getStrokeScale();
       ctx.beginPath();
       ctx.arc(last.x, last.y, lineWidth * 0.52, 0, Math.PI * 2);
       ctx.fillStyle = sketchColor;
@@ -457,7 +465,7 @@ export function initOrderForm({ reducedMotion = false } = {}) {
       if (!drawing) return;
       e.preventDefault();
       const p = getPoint(e);
-      const lineWidth = strokeCssWidth * getScale().sx;
+      const lineWidth = strokeCssWidth * getStrokeScale();
       ctx.beginPath();
       ctx.moveTo(last.x, last.y);
       ctx.lineTo(p.x, p.y);
@@ -550,6 +558,7 @@ export function initOrderForm({ reducedMotion = false } = {}) {
   });
 
   const fullSurface = createSketchSurface(napkinCanvasFull, 4, {
+    isRotated: isModalRotated,
     onStrokeStart: () => {
       modalHasSketch = true;
       inlineDirty = false;
@@ -583,6 +592,31 @@ export function initOrderForm({ reducedMotion = false } = {}) {
     });
   }
 
+  function applyModalOrientation() {
+    if (!sketchModal) return;
+    const vw = document.documentElement.clientWidth || window.innerWidth;
+    const vh = document.documentElement.clientHeight || window.innerHeight;
+    const portraitViewport = vh > vw;
+    const activeRotated = portraitViewport && modalRotatedLandscape;
+    const activeDesktopPortrait = !portraitViewport && modalDesktopPortrait;
+
+    if (portraitViewport) {
+      sketchModal.style.setProperty('--modal-rot-w', `${vh}px`);
+      sketchModal.style.setProperty('--modal-rot-h', `${vw}px`);
+    } else {
+      sketchModal.style.removeProperty('--modal-rot-w');
+      sketchModal.style.removeProperty('--modal-rot-h');
+    }
+
+    sketchModal.classList.toggle('is-rotated', activeRotated);
+    sketchStage?.classList.toggle('is-portrait-stage', activeDesktopPortrait);
+    if (sketchModalRotateBtn) {
+      const active = activeRotated || activeDesktopPortrait;
+      sketchModalRotateBtn.classList.toggle('is-active', active);
+      sketchModalRotateBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+  }
+
   function syncFullCanvasSize({ preserve = true } = {}) {
     if (!sketchStage || !fullSurface || !sketchModal || sketchModal.classList.contains('hidden')) return;
     const cw = sketchStage.clientWidth;
@@ -607,6 +641,7 @@ export function initOrderForm({ reducedMotion = false } = {}) {
       const shouldCopyInline = !hasSketch || inlineDirty || !modalHasSketch;
       sketchModal.classList.remove('hidden');
       document.body.style.overflow = 'hidden';
+      applyModalOrientation();
       syncFullCanvasSize({ preserve: !shouldCopyInline });
       if (shouldCopyInline) {
         fullSurface.resetHistory();
@@ -619,9 +654,22 @@ export function initOrderForm({ reducedMotion = false } = {}) {
       }
     });
 
+    sketchModalRotateBtn?.addEventListener('click', () => {
+      const vw = document.documentElement.clientWidth || window.innerWidth;
+      const vh = document.documentElement.clientHeight || window.innerHeight;
+      if (vh > vw) {
+        modalRotatedLandscape = !modalRotatedLandscape;
+      } else {
+        modalDesktopPortrait = !modalDesktopPortrait;
+      }
+      applyModalOrientation();
+      syncFullCanvasSize({ preserve: true });
+    });
+
     if (typeof ResizeObserver === 'function' && sketchStage) {
       const ro = new ResizeObserver(() => {
         if (!sketchModal.classList.contains('hidden') && !fullSurface.isDrawing()) {
+          applyModalOrientation();
           syncFullCanvasSize({ preserve: true });
         }
       });
@@ -630,6 +678,7 @@ export function initOrderForm({ reducedMotion = false } = {}) {
 
     window.addEventListener('resize', () => {
       if (!sketchModal.classList.contains('hidden') && !fullSurface.isDrawing()) {
+        applyModalOrientation();
         syncFullCanvasSize({ preserve: true });
       }
     });

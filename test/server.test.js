@@ -80,6 +80,7 @@ test('GET /health and GET / serve streamlined imastik app with process infograph
     assert.match(html, /id="orderForm"/);
     assert.match(html, /id="napkinCanvas"/);
     assert.match(html, /id="sketchExpand"/);
+    assert.match(html, /id="sketchModalRotate"/);
     assert.match(html, /id="napkinCanvasFull"/);
     assert.match(html, /id="voiceToggle"/);
     assert.match(html, /name="share_permission"/);

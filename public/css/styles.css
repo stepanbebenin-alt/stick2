@@ -1355,6 +1355,19 @@ header nav a.nav-cta:hover {
   gap: 10px;
 }
 
+.sketch-modal.is-rotated {
+  top: 50%;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  width: var(--modal-rot-w, 100dvh);
+  height: var(--modal-rot-h, 100vw);
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center center;
+  padding: max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom))
+    max(10px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-top));
+}
+
 .sketch-modal-bar {
   max-width: 1200px;
   width: 100%;
@@ -1367,6 +1380,22 @@ header nav a.nav-cta:hover {
   gap: 8px 12px;
   color: #fff;
   font: 800 16px 'DM Sans', sans-serif;
+}
+
+.sketch-rotate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.sketch-rotate-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.sketch-rotate-btn.is-active {
+  background: var(--yellow);
 }
 
 .extra-done {
@@ -1387,6 +1416,13 @@ header nav a.nav-cta:hover {
   overflow: hidden;
   touch-action: none;
   position: relative;
+}
+
+.sketch-modal-stage.is-portrait-stage {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  aspect-ratio: 3 / 5;
 }
 
 .sketch-modal-stage canvas {
@@ -1682,6 +1718,14 @@ footer {
     grid-template-columns: 1fr;
     padding: 18px;
     box-shadow: 5px 6px 0 var(--pink);
+  }
+
+  .sketch-modal-bar .sketch-actions {
+    gap: 6px;
+  }
+
+  .sketch-modal-bar .extra-button {
+    padding: 7px 11px;
   }
 
   .formgrid input:not([type='file']):not([type='checkbox']),
