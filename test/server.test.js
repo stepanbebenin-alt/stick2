@@ -75,7 +75,7 @@ test('GET /health and GET / serve streamlined imastik app with process infograph
     assert.match(html, /instagram\.com\/imastik\.co/);
     assert.match(html, /class="hero-ornaments"/);
     assert.match(html, /id="why-sticky"/);
-    assert.match(html, /class="process-infographic"/);
+    assert.match(html, /class="process-diagram"/);
     assert.match(html, /id="prices"/);
     assert.match(html, /id="orderForm"/);
     assert.match(html, /id="napkinCanvas"/);
@@ -94,10 +94,10 @@ test('GET /health and GET / serve streamlined imastik app with process infograph
     assert.doesNotMatch(html, /STICKY CLUB/);
     assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)/i);
 
-    // Verify section order: hero -> process infographic -> pricing -> order form
+    // Verify section order: hero -> process diagram -> pricing -> order form
     const topIdx = html.indexOf('id="top"');
     const whyIdx = html.indexOf('id="why-sticky"');
-    const infographicIdx = html.indexOf('class="process-infographic"');
+    const infographicIdx = html.indexOf('class="process-diagram"');
     const pricesIdx = html.indexOf('id="prices"');
     const orderIdx = html.indexOf('id="order"');
     assert.ok(
