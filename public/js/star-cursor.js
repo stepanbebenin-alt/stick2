@@ -94,7 +94,7 @@ export function initStarCursor() {
   document.addEventListener('click', (e) => {
     const target = e.target instanceof Element ? e.target : null;
     if (!target || target.closest('input, textarea, select, canvas')) return;
-    if (!target.closest('button, a, .pricecard')) return;
+    if (!target.closest('button, a')) return;
     if (!e.clientX && !e.clientY) return;
 
     for (let i = 0; i < 4; i++) {

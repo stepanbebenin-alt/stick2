@@ -90,6 +90,9 @@ test('GET /health and GET / serve streamlined imastik app with process infograph
     assert.doesNotMatch(html, /id="play"/);
     assert.doesNotMatch(html, /id="story"/);
     assert.doesNotMatch(html, /playground\.js/);
+    assert.doesNotMatch(html, /SELECT THIS PACK/);
+    assert.doesNotMatch(html, /class="pricecard[^"]*is-selected"/);
+    assert.doesNotMatch(html, /<button[^>]*pricecard/i);
     assert.doesNotMatch(html, /YOUR-TEAM-EMAIL@example\.com/);
     assert.doesNotMatch(html, /STICKY CLUB/);
     assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)/i);

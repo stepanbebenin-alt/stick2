@@ -596,19 +596,14 @@ header nav a.nav-cta:hover {
 }
 
 .pricecard {
-  appearance: none;
-  text-align: left;
-  font: inherit;
   color: var(--ink);
   border: 2px solid var(--ink);
   border-radius: 20px;
   padding: 28px 24px;
   background: var(--cream);
-  cursor: pointer;
   display: grid;
   gap: 8px;
   box-shadow: 5px 5px 0 var(--ink);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .pricecard:nth-child(1) {
@@ -625,17 +620,6 @@ header nav a.nav-cta:hover {
   transform: rotate(-0.5deg);
 }
 
-.pricecard:hover {
-  transform: translateY(-6px) rotate(0deg);
-  box-shadow: 8px 10px 0 var(--ink);
-}
-
-.pricecard.is-selected {
-  outline: 3px solid var(--ink);
-  outline-offset: 4px;
-  transform: translateY(-4px) rotate(0deg);
-}
-
 .price-kicker {
   font: 600 12px 'DM Mono', monospace;
   letter-spacing: 0.08em;
@@ -650,36 +634,6 @@ header nav a.nav-cta:hover {
   font-size: 13.5px;
   line-height: 1.45;
   color: #36453b;
-}
-
-.price-select-hint {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  font: 700 11px 'DM Mono', monospace;
-  letter-spacing: 0.09em;
-  color: var(--ink);
-}
-
-.pricecard .hint-arrow {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-top: 2px solid currentColor;
-  border-right: 2px solid currentColor;
-  position: relative;
-}
-
-.pricecard .hint-arrow::after {
-  content: '';
-  position: absolute;
-  width: 13px;
-  height: 2px;
-  background: currentColor;
-  transform: rotate(-45deg);
-  top: 3px;
-  right: -2px;
 }
 
 .order-link {
