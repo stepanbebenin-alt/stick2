@@ -1,0 +1,21 @@
+{
+  "name": "imastik",
+  "version": "2.0.0",
+  "description": "imastik custom laptop stickers web app ready for Render.",
+  "main": "server.js",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "compression": "^1.7.5",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "multer": "^2.5.0"
+  }
+}

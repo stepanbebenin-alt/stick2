@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: imastik
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ORDER_MODE
+        value: auto
+      - key: TEAM_EMAIL
+        value: imastik.co@gmail.com
+      - key: ADMIN_PASSWORD
+        generateValue: true
