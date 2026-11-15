@@ -377,7 +377,23 @@ export function initOrderForm({ reducedMotion = false } = {}) {
   });
 
   // --- Napkin Sketch Canvas (inline + fullscreen modal) ---
-  function createSketchSurface(canvas, strokeWidth) {
+  let inlineDirty = false;
+  let modalHasSketch = false;
+  const sketchStage = napkinCanvasFull?.closest('.sketch-modal-stage') || null;
+
+  function drawContained(ctx, targetW, targetH, sourceCanvas) {
+    ctx.fillStyle = '#fffdf5';
+    ctx.fillRect(0, 0, targetW, targetH);
+    if (!sourceCanvas || !sourceCanvas.width || !sourceCanvas.height) return;
+    const scale = Math.min(targetW / sourceCanvas.width, targetH / sourceCanvas.height);
+    const drawW = sourceCanvas.width * scale;
+    const drawH = sourceCanvas.height * scale;
+    const dx = (targetW - drawW) / 2;
+    const dy = (targetH - drawH) / 2;
+    ctx.drawImage(sourceCanvas, dx, dy, drawW, drawH);
+  }
+
+  function createSketchSurface(canvas, strokeCssWidth, { onStrokeStart, onUndo, onClear } = {}) {
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return null;
 
@@ -398,11 +414,20 @@ export function initOrderForm({ reducedMotion = false } = {}) {
       });
     };
 
-    const getPoint = (e) => {
+    const getScale = () => {
       const r = canvas.getBoundingClientRect();
       return {
-        x: ((e.clientX - r.left) * canvas.width) / r.width,
-        y: ((e.clientY - r.top) * canvas.height) / r.height,
+        rect: r,
+        sx: r.width > 0 ? canvas.width / r.width : 1,
+        sy: r.height > 0 ? canvas.height / r.height : 1,
+      };
+    };
+
+    const getPoint = (e) => {
+      const { rect, sx, sy } = getScale();
+      return {
+        x: (e.clientX - rect.left) * sx,
+        y: (e.clientY - rect.top) * sy,
       };
     };
 
@@ -414,10 +439,16 @@ export function initOrderForm({ reducedMotion = false } = {}) {
       pushUndo();
       drawing = true;
       hasSketch = true;
+      onStrokeStart?.();
       last = getPoint(e);
-      canvas.setPointerCapture(e.pointerId);
+      try {
+        canvas.setPointerCapture(e.pointerId);
+      } catch {
+        // Ignore if pointer capture is unsupported on synthetic pointer events
+      }
+      const lineWidth = strokeCssWidth * getScale().sx;
       ctx.beginPath();
-      ctx.arc(last.x, last.y, strokeWidth * 0.52, 0, Math.PI * 2);
+      ctx.arc(last.x, last.y, lineWidth * 0.52, 0, Math.PI * 2);
       ctx.fillStyle = sketchColor;
       ctx.fill();
     });
@@ -426,10 +457,11 @@ export function initOrderForm({ reducedMotion = false } = {}) {
       if (!drawing) return;
       e.preventDefault();
       const p = getPoint(e);
+      const lineWidth = strokeCssWidth * getScale().sx;
       ctx.beginPath();
       ctx.moveTo(last.x, last.y);
       ctx.lineTo(p.x, p.y);
-      ctx.lineWidth = strokeWidth;
+      ctx.lineWidth = lineWidth;
       ctx.strokeStyle = sketchColor;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
@@ -446,21 +478,52 @@ export function initOrderForm({ reducedMotion = false } = {}) {
     return {
       canvas,
       ctx,
+      fillBg,
+      isDrawing() {
+        return drawing;
+      },
+      resetHistory() {
+        undoStack.length = 0;
+      },
       pushUndo,
       undo() {
         const snap = undoStack.pop();
         if (!snap) return;
         ctx.putImageData(snap.image, 0, 0);
         hasSketch = snap.hadSketch;
+        onUndo?.(snap.hadSketch);
       },
       clear() {
         pushUndo();
         fillBg();
         hasSketch = false;
+        onClear?.();
       },
       copyFrom(sourceCanvas) {
-        fillBg();
-        ctx.drawImage(sourceCanvas, 0, 0, canvas.width, canvas.height);
+        drawContained(ctx, canvas.width, canvas.height, sourceCanvas);
+      },
+      resizeTo(cssWidth, cssHeight, dpr = 1, preserveContent = true) {
+        const targetW = Math.max(1, Math.round(cssWidth * dpr));
+        const targetH = Math.max(1, Math.round(cssHeight * dpr));
+        if (targetW === canvas.width && targetH === canvas.height) return false;
+
+        let snapshot = null;
+        if (preserveContent && hasSketch) {
+          snapshot = document.createElement('canvas');
+          snapshot.width = canvas.width;
+          snapshot.height = canvas.height;
+          snapshot.getContext('2d')?.drawImage(canvas, 0, 0);
+        }
+
+        canvas.width = targetW;
+        canvas.height = targetH;
+        undoStack.length = 0;
+        if (snapshot) {
+          drawContained(ctx, canvas.width, canvas.height, snapshot);
+        } else {
+          fillBg();
+        }
+        return true;
       },
     };
   }
@@ -472,8 +535,40 @@ export function initOrderForm({ reducedMotion = false } = {}) {
     });
   }
 
-  const inlineSurface = createSketchSurface(napkinCanvas, 4.6);
-  const fullSurface = createSketchSurface(napkinCanvasFull, 9.2);
+  const inlineSurface = createSketchSurface(napkinCanvas, 3.2, {
+    onStrokeStart: () => {
+      inlineDirty = true;
+    },
+    onUndo: (restoredHadSketch) => {
+      inlineDirty = true;
+      if (!restoredHadSketch) modalHasSketch = false;
+    },
+    onClear: () => {
+      inlineDirty = false;
+      modalHasSketch = false;
+    },
+  });
+
+  const fullSurface = createSketchSurface(napkinCanvasFull, 4, {
+    onStrokeStart: () => {
+      modalHasSketch = true;
+      inlineDirty = false;
+    },
+    onUndo: (restoredHadSketch) => {
+      modalHasSketch = restoredHadSketch;
+    },
+    onClear: () => {
+      modalHasSketch = false;
+      inlineDirty = false;
+    },
+  });
+
+  function getExportCanvas() {
+    if (modalHasSketch && !inlineDirty && napkinCanvasFull) {
+      return napkinCanvasFull;
+    }
+    return napkinCanvas;
+  }
 
   if (inlineSurface) {
     [...penButtons, ...penButtonsModal].forEach((btn) => {
@@ -483,8 +578,18 @@ export function initOrderForm({ reducedMotion = false } = {}) {
     sketchUndoBtn?.addEventListener('click', () => inlineSurface.undo());
     sketchClearBtn?.addEventListener('click', () => inlineSurface.clear());
     sketchSaveLink?.addEventListener('click', (e) => {
-      e.currentTarget.href = napkinCanvas.toDataURL('image/png');
+      const targetCanvas = getExportCanvas();
+      if (targetCanvas) e.currentTarget.href = targetCanvas.toDataURL('image/png');
     });
+  }
+
+  function syncFullCanvasSize({ preserve = true } = {}) {
+    if (!sketchStage || !fullSurface || !sketchModal || sketchModal.classList.contains('hidden')) return;
+    const cw = sketchStage.clientWidth;
+    const ch = sketchStage.clientHeight;
+    if (cw < 1 || ch < 1) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    fullSurface.resizeTo(cw, ch, dpr, preserve);
   }
 
   function closeSketchModal() {
@@ -499,9 +604,34 @@ export function initOrderForm({ reducedMotion = false } = {}) {
 
   if (sketchModal && fullSurface && inlineSurface) {
     sketchExpandBtn?.addEventListener('click', () => {
-      fullSurface.copyFrom(inlineSurface.canvas);
+      const shouldCopyInline = !hasSketch || inlineDirty || !modalHasSketch;
       sketchModal.classList.remove('hidden');
       document.body.style.overflow = 'hidden';
+      syncFullCanvasSize({ preserve: !shouldCopyInline });
+      if (shouldCopyInline) {
+        fullSurface.resetHistory();
+        if (hasSketch) {
+          fullSurface.copyFrom(inlineSurface.canvas);
+        } else {
+          fullSurface.fillBg();
+        }
+        inlineDirty = false;
+      }
+    });
+
+    if (typeof ResizeObserver === 'function' && sketchStage) {
+      const ro = new ResizeObserver(() => {
+        if (!sketchModal.classList.contains('hidden') && !fullSurface.isDrawing()) {
+          syncFullCanvasSize({ preserve: true });
+        }
+      });
+      ro.observe(sketchStage);
+    }
+
+    window.addEventListener('resize', () => {
+      if (!sketchModal.classList.contains('hidden') && !fullSurface.isDrawing()) {
+        syncFullCanvasSize({ preserve: true });
+      }
     });
 
     sketchModalUndoBtn?.addEventListener('click', () => fullSurface.undo());
@@ -516,9 +646,10 @@ export function initOrderForm({ reducedMotion = false } = {}) {
   }
 
   function getSketchBlob() {
-    if (!napkinCanvas || !hasSketch) return Promise.resolve(null);
+    const exportCanvas = getExportCanvas();
+    if (!exportCanvas || !hasSketch) return Promise.resolve(null);
     return new Promise((resolve) => {
-      napkinCanvas.toBlob((blob) => resolve(blob), 'image/png');
+      exportCanvas.toBlob((blob) => resolve(blob), 'image/png');
     });
   }
 
@@ -601,10 +732,11 @@ export function initOrderForm({ reducedMotion = false } = {}) {
     const downloads = document.createElement('div');
     downloads.className = 'result-downloads';
 
-    if (hasSketch && napkinCanvas) {
+    const exportCanvas = getExportCanvas();
+    if (hasSketch && exportCanvas) {
       const a = document.createElement('a');
       a.className = 'result-btn';
-      a.href = napkinCanvas.toDataURL('image/png');
+      a.href = exportCanvas.toDataURL('image/png');
       a.download = 'imastik-sketch.png';
       a.textContent = 'Download Sketch PNG';
       downloads.appendChild(a);

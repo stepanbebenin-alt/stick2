@@ -1344,13 +1344,15 @@ header nav a.nav-cta:hover {
 .sketch-modal {
   position: fixed;
   inset: 0;
+  height: 100dvh;
   z-index: 500;
   background: rgba(25, 37, 30, 0.88);
   backdrop-filter: blur(8px);
   display: flex;
   flex-direction: column;
-  padding: 16px;
-  gap: 12px;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  gap: 10px;
 }
 
 .sketch-modal-bar {
@@ -1361,7 +1363,8 @@ header nav a.nav-cta:hover {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
+  flex-shrink: 0;
+  gap: 8px 12px;
   color: #fff;
   font: 800 16px 'DM Sans', sans-serif;
 }
@@ -1381,18 +1384,14 @@ header nav a.nav-cta:hover {
   background: #fffdf5;
   border: 2px solid var(--ink);
   border-radius: 20px;
-  display: grid;
-  place-items: center;
   overflow: hidden;
-  padding: 8px;
   touch-action: none;
+  position: relative;
 }
 
 .sketch-modal-stage canvas {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
+  width: 100%;
+  height: 100%;
   display: block;
   touch-action: none;
   cursor: var(--pencil-cursor) !important;
