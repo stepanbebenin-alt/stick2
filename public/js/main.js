@@ -1,5 +1,5 @@
-import { initOrderForm } from './order-form.js?v=12';
-import { initStarCursor } from './star-cursor.js?v=12';
+import { initOrderForm } from './order-form.js?v=13';
+import { initStarCursor } from './star-cursor.js?v=13';
 
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 

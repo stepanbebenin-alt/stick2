@@ -385,16 +385,75 @@ export function initOrderForm({ reducedMotion = false } = {}) {
   const sketchStage = napkinCanvasFull?.closest('.sketch-modal-stage') || null;
   const isModalRotated = () => Boolean(sketchModal?.classList.contains('is-rotated'));
 
-  function drawContained(ctx, targetW, targetH, sourceCanvas) {
+  function getInkBounds(sourceCanvas) {
+    const sourceCtx = sourceCanvas?.getContext('2d');
+    if (!sourceCanvas || !sourceCtx || !sourceCanvas.width || !sourceCanvas.height) return null;
+    const { width, height } = sourceCanvas;
+    const { data } = sourceCtx.getImageData(0, 0, width, height);
+    let minX = width;
+    let minY = height;
+    let maxX = -1;
+    let maxY = -1;
+
+    for (let y = 0; y < height; y++) {
+      const rowOffset = y * width * 4;
+      for (let x = 0; x < width; x++) {
+        const i = rowOffset + x * 4;
+        if (data[i] < 248 || data[i + 1] < 245 || data[i + 2] < 235) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    if (maxX < minX || maxY < minY) return null;
+    const pad = 3;
+    const x = Math.max(0, minX - pad);
+    const y = Math.max(0, minY - pad);
+    const right = Math.min(width - 1, maxX + pad);
+    const bottom = Math.min(height - 1, maxY + pad);
+    return {
+      x,
+      y,
+      w: right - x + 1,
+      h: bottom - y + 1,
+    };
+  }
+
+  function drawInkPreserved(
+    ctx,
+    targetW,
+    targetH,
+    sourceCanvas,
+    { sourceScale = 1, targetScale = 1, margin = 8 } = {},
+  ) {
     ctx.fillStyle = '#fffdf5';
     ctx.fillRect(0, 0, targetW, targetH);
     if (!sourceCanvas || !sourceCanvas.width || !sourceCanvas.height) return;
-    const scale = Math.min(targetW / sourceCanvas.width, targetH / sourceCanvas.height);
-    const drawW = sourceCanvas.width * scale;
-    const drawH = sourceCanvas.height * scale;
+
+    if (targetW === sourceCanvas.width && targetH === sourceCanvas.height && Math.abs(targetScale - sourceScale) < 0.001) {
+      ctx.drawImage(sourceCanvas, 0, 0);
+      return;
+    }
+
+    const bounds = getInkBounds(sourceCanvas);
+    if (!bounds) return;
+
+    const unitRatio = sourceScale > 0 ? targetScale / sourceScale : 1;
+    const naturalW = bounds.w * unitRatio;
+    const naturalH = bounds.h * unitRatio;
+    const pad = Math.min(margin, Math.floor(Math.min(targetW, targetH) * 0.08));
+    const availW = Math.max(1, targetW - pad * 2);
+    const availH = Math.max(1, targetH - pad * 2);
+    const fit = Math.min(1, availW / naturalW, availH / naturalH);
+
+    const drawW = naturalW * fit;
+    const drawH = naturalH * fit;
     const dx = (targetW - drawW) / 2;
     const dy = (targetH - drawH) / 2;
-    ctx.drawImage(sourceCanvas, dx, dy, drawW, drawH);
+    ctx.drawImage(sourceCanvas, bounds.x, bounds.y, bounds.w, bounds.h, dx, dy, drawW, drawH);
   }
 
   function createSketchSurface(canvas, strokeCssWidth, { onStrokeStart, onUndo, onClear, isRotated } = {}) {
@@ -404,6 +463,10 @@ export function initOrderForm({ reducedMotion = false } = {}) {
     const undoStack = [];
     let drawing = false;
     let last = null;
+    let currentDpr = 1;
+    let masterCanvas = null;
+    let masterDpr = 1;
+    let snapshotDirty = false;
 
     const fillBg = () => {
       ctx.fillStyle = '#fffdf5';
@@ -447,6 +510,7 @@ export function initOrderForm({ reducedMotion = false } = {}) {
       pushUndo();
       drawing = true;
       hasSketch = true;
+      snapshotDirty = true;
       onStrokeStart?.();
       last = getPoint(e);
       try {
@@ -464,6 +528,7 @@ export function initOrderForm({ reducedMotion = false } = {}) {
     canvas.addEventListener('pointermove', (e) => {
       if (!drawing) return;
       e.preventDefault();
+      snapshotDirty = true;
       const p = getPoint(e);
       const lineWidth = strokeCssWidth * getStrokeScale();
       ctx.beginPath();
@@ -499,35 +564,56 @@ export function initOrderForm({ reducedMotion = false } = {}) {
         if (!snap) return;
         ctx.putImageData(snap.image, 0, 0);
         hasSketch = snap.hadSketch;
+        snapshotDirty = true;
         onUndo?.(snap.hadSketch);
       },
       clear() {
         pushUndo();
         fillBg();
         hasSketch = false;
+        masterCanvas = null;
+        snapshotDirty = false;
         onClear?.();
       },
-      copyFrom(sourceCanvas) {
-        drawContained(ctx, canvas.width, canvas.height, sourceCanvas);
+      copyFrom(sourceCanvas, sourceScale = 1, targetScale = currentDpr) {
+        masterCanvas = null;
+        snapshotDirty = true;
+        drawInkPreserved(ctx, canvas.width, canvas.height, sourceCanvas, {
+          sourceScale,
+          targetScale,
+        });
+      },
+      getDpr() {
+        return currentDpr;
       },
       resizeTo(cssWidth, cssHeight, dpr = 1, preserveContent = true) {
         const targetW = Math.max(1, Math.round(cssWidth * dpr));
         const targetH = Math.max(1, Math.round(cssHeight * dpr));
-        if (targetW === canvas.width && targetH === canvas.height) return false;
+        if (targetW === canvas.width && targetH === canvas.height && currentDpr === dpr) return false;
 
-        let snapshot = null;
         if (preserveContent && hasSketch) {
-          snapshot = document.createElement('canvas');
-          snapshot.width = canvas.width;
-          snapshot.height = canvas.height;
-          snapshot.getContext('2d')?.drawImage(canvas, 0, 0);
+          if (snapshotDirty || !masterCanvas) {
+            masterCanvas = document.createElement('canvas');
+            masterCanvas.width = canvas.width;
+            masterCanvas.height = canvas.height;
+            masterCanvas.getContext('2d')?.drawImage(canvas, 0, 0);
+            masterDpr = currentDpr;
+            snapshotDirty = false;
+          }
+        } else {
+          masterCanvas = null;
+          snapshotDirty = false;
         }
 
         canvas.width = targetW;
         canvas.height = targetH;
+        currentDpr = dpr;
         undoStack.length = 0;
-        if (snapshot) {
-          drawContained(ctx, canvas.width, canvas.height, snapshot);
+        if (preserveContent && hasSketch && masterCanvas) {
+          drawInkPreserved(ctx, canvas.width, canvas.height, masterCanvas, {
+            sourceScale: masterDpr,
+            targetScale: dpr,
+          });
         } else {
           fillBg();
         }
@@ -626,11 +712,14 @@ export function initOrderForm({ reducedMotion = false } = {}) {
     fullSurface.resizeTo(cw, ch, dpr, preserve);
   }
 
+  const getInlineScale = () =>
+    napkinCanvas && napkinCanvas.clientWidth > 0 ? napkinCanvas.width / napkinCanvas.clientWidth : 1;
+
   function closeSketchModal() {
     if (!sketchModal || sketchModal.classList.contains('hidden')) return;
     if (inlineSurface && fullSurface) {
       inlineSurface.pushUndo();
-      inlineSurface.copyFrom(fullSurface.canvas);
+      inlineSurface.copyFrom(fullSurface.canvas, fullSurface.getDpr(), getInlineScale());
     }
     sketchModal.classList.add('hidden');
     document.body.style.overflow = '';
@@ -646,7 +735,7 @@ export function initOrderForm({ reducedMotion = false } = {}) {
       if (shouldCopyInline) {
         fullSurface.resetHistory();
         if (hasSketch) {
-          fullSurface.copyFrom(inlineSurface.canvas);
+          fullSurface.copyFrom(inlineSurface.canvas, getInlineScale(), fullSurface.getDpr());
         } else {
           fullSurface.fillBg();
         }
