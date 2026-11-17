@@ -119,7 +119,7 @@ export function initOrderForm({ reducedMotion = false } = {}) {
     inbox.textContent = inboxEmail || 'imastik.co@gmail.com';
     paymentSteps.append(
       lead,
-      ' Submitting your idea is free — no card needed here. When you hit Send, your idea, photos, sketch, and voice note go straight to ',
+      ' Submitting your idea is free — no extra design fee for standard designs and no card needed here. When you hit Send, your idea, photos, sketch, and voice note go straight to ',
       inbox,
       ', and we’ll reply with your design preview plus payment options (Revolut, bank transfer, or cash) before printing.',
     );
@@ -157,8 +157,8 @@ export function initOrderForm({ reducedMotion = false } = {}) {
     if (totalEl) totalEl.textContent = totalFormatted;
     if (summaryLabel) {
       summaryLabel.textContent = selectedStoreDesign
-        ? `1 Store design (${selectedStoreDesign.title}) · ${qty} copies`
-        : `1 custom sticker design · ${qty} copies`;
+        ? `1 Store design (${selectedStoreDesign.title}) + ${qty} printed stickers`
+        : `1 custom design (included) + ${qty} printed stickers`;
     }
     if (summaryPrice) summaryPrice.textContent = totalFormatted;
 
@@ -808,7 +808,7 @@ export function initOrderForm({ reducedMotion = false } = {}) {
     const lines = [
       `Name: ${name}`,
       `Email: ${email}`,
-      `Sticker pack: ${qty} copies (1 ${selectedStoreDesign ? 'Store archive' : 'custom sticker'} design)`,
+      `Sticker pack: 1 ${selectedStoreDesign ? 'Store archive' : 'custom graphic'} design (included) + ${qty} printed stickers`,
       `Estimated total: ${price} (paid via Revolut, bank transfer, or cash after design preview approval)`,
       ...(selectedStoreDesign ? [`Selected Store design: ${selectedStoreDesign.title} (#${selectedStoreDesign.id})`] : []),
       '',

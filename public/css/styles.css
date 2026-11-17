@@ -583,7 +583,7 @@ header nav a.nav-cta:hover {
 }
 
 .sectiontop p {
-  max-width: 340px;
+  max-width: 420px;
   font-size: 16px;
   line-height: 1.6;
   margin: 0;
@@ -602,7 +602,8 @@ header nav a.nav-cta:hover {
   padding: 28px 24px;
   background: var(--cream);
   display: grid;
-  gap: 8px;
+  align-content: start;
+  gap: 10px;
   box-shadow: 5px 5px 0 var(--ink);
 }
 
@@ -621,13 +622,31 @@ header nav a.nav-cta:hover {
 }
 
 .price-kicker {
-  font: 600 12px 'DM Mono', monospace;
+  font: 600 11.5px 'DM Mono', monospace;
   letter-spacing: 0.08em;
 }
 
-.pricecard strong {
+.pricecard > strong,
+.price-amount {
   font: 700 clamp(50px, 5.6vw, 88px) / 0.96 'Fredoka', 'DM Sans', Arial, sans-serif;
   letter-spacing: -0.03em;
+  display: block;
+}
+
+.price-breakdown {
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 7px 11px;
+  border-radius: 10px;
+  border: 1.5px solid var(--ink);
+  background: rgba(255, 255, 255, 0.72);
+  font: 800 13.5px/1.35 'DM Sans', Arial, sans-serif;
+  color: var(--ink);
+}
+
+.pricecard:nth-child(2) .price-breakdown {
+  background: rgba(255, 253, 246, 0.88);
 }
 
 .price-desc {

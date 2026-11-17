@@ -77,6 +77,10 @@ test('GET /health and GET / serve streamlined imastik app with process infograph
     assert.match(html, /id="why-sticky"/);
     assert.match(html, /class="process-diagram"/);
     assert.match(html, /id="prices"/);
+    assert.match(html, /1 custom design \+ 5 printed stickers/);
+    assert.match(html, /1 custom design \+ 10 printed stickers/);
+    assert.match(html, /1 custom design \+ 20 printed stickers/);
+    assert.match(html, /no additional design fee/i);
     assert.match(html, /id="orderForm"/);
     assert.match(html, /id="napkinCanvas"/);
     assert.match(html, /id="sketchExpand"/);
